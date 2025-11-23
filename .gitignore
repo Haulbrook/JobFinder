@@ -56,6 +56,15 @@ htmlcov/
 # Uncomment if you want to track local data
 # /.jobfinder/
 
+# Personal job search materials (resumes, cover letters, etc.)
+# Exclude all user_data files by default
+user_data/**/*
+
+# But include README and template files
+!user_data/README.md
+!user_data/**/*template*
+!user_data/**/PLACE_*
+
 # Logs
 *.log
 logs/
