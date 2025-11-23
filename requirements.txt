@@ -1,0 +1,39 @@
+# Core Dependencies
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Database
+sqlite3  # Built-in with Python 3.x
+
+# Optional: AI Features (Claude API)
+anthropic>=0.7.0
+
+# Development Dependencies (optional)
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.1.0
+mypy>=1.7.0
+
+# Optional: Advanced Features
+# Uncomment if you want to use these features
+
+# Browser automation (for auto-apply)
+# selenium>=4.15.0
+# playwright>=1.40.0
+
+# Email notifications
+# python-email>=0.1.0
+
+# Calendar integration
+# google-calendar-simple-api>=2.4.0
+
+# Slack notifications
+# slack-sdk>=3.26.0
+
+# Data export
+# pandas>=2.1.0
+# openpyxl>=3.1.0
+
+# Web scraping alternatives
+# beautifulsoup4>=4.12.0
+# scrapy>=2.11.0

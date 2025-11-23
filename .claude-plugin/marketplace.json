@@ -1,0 +1,12 @@
+{
+  "name": "JobFinder",
+  "version": "1.0.0",
+  "description": "AI-powered job search agent that finds, analyzes, and helps you apply to jobs matching your profile",
+  "author": "Haulbrook",
+  "repository": "https://github.com/Haulbrook/JobFinder",
+  "entry": "scripts/main.py",
+  "requirements": "requirements.txt",
+  "category": "productivity",
+  "tags": ["job-search", "career", "automation", "ai-assistant"],
+  "license": "MIT"
+}
