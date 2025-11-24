@@ -87,86 +87,133 @@ Response time: Within 4 hours
 Location: Atlanta/North Georgia (US-based)"""
 
     def start(self):
-        """Start the browser"""
+        """Start the browser with anti-detection features"""
         print("🚀 Starting Upwork Bot...")
         print(f"   Headless mode: {self.headless}")
 
         playwright = sync_playwright().start()
-        self.browser = playwright.chromium.launch(headless=self.headless)
+
+        # Create persistent context directory for cookies/session
+        import tempfile
+        from pathlib import Path
+        user_data_dir = Path.home() / '.upwork_bot_session'
+        user_data_dir.mkdir(exist_ok=True)
+
+        # Launch with anti-detection features
+        self.browser = playwright.chromium.launch(
+            headless=self.headless,
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--disable-dev-shm-usage',
+                '--no-sandbox',
+                '--disable-web-security',
+                '--disable-features=IsolateOrigins,site-per-process'
+            ]
+        )
+
+        # Use persistent context to save cookies/session
         self.context = self.browser.new_context(
             viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            locale='en-US',
+            timezone_id='America/New_York',
+            permissions=['geolocation'],
+            storage_state=str(user_data_dir / 'state.json') if (user_data_dir / 'state.json').exists() else None
         )
+
         self.page = self.context.new_page()
 
-        print("✅ Browser started")
+        # Add script to hide webdriver property
+        self.page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+
+            // Add realistic chrome property
+            window.chrome = {
+                runtime: {}
+            };
+
+            // Realistic plugins
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5]
+            });
+
+            // Realistic languages
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+        """)
+
+        print("✅ Browser started with stealth mode")
+        print(f"   Session saved to: {user_data_dir}")
 
     def stop(self):
-        """Stop the browser"""
+        """Stop the browser and save session"""
+        if self.context:
+            # Save session state for next run
+            from pathlib import Path
+            user_data_dir = Path.home() / '.upwork_bot_session'
+            user_data_dir.mkdir(exist_ok=True)
+            try:
+                self.context.storage_state(path=str(user_data_dir / 'state.json'))
+                print("💾 Session saved for next run")
+            except Exception as e:
+                print(f"⚠️  Could not save session: {e}")
+
         if self.browser:
             self.browser.close()
             print("🛑 Browser closed")
 
     def login(self):
-        """Log into Upwork"""
+        """Log into Upwork with CAPTCHA handling"""
         print("\n🔐 Logging into Upwork...")
 
         try:
             # Go to Upwork login
-            self.page.goto('https://www.upwork.com/ab/account-security/login')
-            self.page.wait_for_load_state('networkidle')
+            self.page.goto('https://www.upwork.com/ab/account-security/login', timeout=30000)
+            time.sleep(2)
 
             # Check if already logged in
             if 'feed' in self.page.url or 'home' in self.page.url:
-                print("✅ Already logged in!")
+                print("✅ Already logged in (session restored)!")
                 return True
 
-            # Enter email/username
-            print("   Entering email...")
-            email_input = self.page.locator('#login_username')
-            email_input.fill(self.email)
+            print("\n" + "="*80)
+            print("🤖 MANUAL LOGIN REQUIRED")
+            print("="*80)
+            print("\nUpwork has bot detection - please log in manually in the browser.")
+            print("\nSteps:")
+            print("1. Enter your email: Haulbrookai@gmail.com")
+            print("2. Enter your password")
+            print("3. Complete any CAPTCHA challenges (\"I'm not a robot\")")
+            print("4. Complete 2FA if prompted")
+            print("5. Wait until you see the Upwork homepage/feed")
+            print("\nThe bot will wait for you...")
+            print("="*80)
 
-            # Click continue
-            continue_btn = self.page.locator('button[type="submit"]')
-            continue_btn.click()
+            # Wait for user to log in manually
+            max_wait = 300  # 5 minutes
+            start_time = time.time()
 
-            # Wait for password page
-            time.sleep(2)
+            while (time.time() - start_time) < max_wait:
+                time.sleep(3)
 
-            # Enter password
-            print("   Entering password...")
-            password_input = self.page.locator('#login_password')
-            password_input.fill(self.password)
+                # Check if logged in
+                current_url = self.page.url
+                if any(keyword in current_url for keyword in ['feed', 'home', 'nx/find-work', 'jobs']):
+                    print("\n✅ Login detected!")
+                    time.sleep(2)  # Let page fully load
+                    print("✅ Login successful! Session will be saved for next time.")
+                    return True
 
-            # Click login
-            login_btn = self.page.locator('button[type="submit"]')
-            login_btn.click()
-
-            # Wait for navigation
-            print("   Waiting for login...")
-            self.page.wait_for_load_state('networkidle', timeout=15000)
-
-            # Check for 2FA or security questions
-            if 'security' in self.page.url or 'verify' in self.page.url:
-                print("\n⚠️  TWO-FACTOR AUTHENTICATION REQUIRED")
-                print("    Please complete 2FA in the browser window")
-                print("    (Check your email/phone for code)")
-                print("\n    Waiting 60 seconds for you to complete 2FA...")
-                time.sleep(60)
-
-            # Verify login success
-            time.sleep(3)
-            if 'feed' in self.page.url or 'home' in self.page.url or 'jobs' in self.page.url:
-                print("✅ Login successful!")
-                return True
-            else:
-                print(f"❌ Login may have failed. Current URL: {self.page.url}")
-                print("    Please check the browser window")
-                input("    Press Enter once you're logged in...")
-                return True
+            # Timeout
+            print("\n⚠️  Login timeout. Please make sure you're logged in.")
+            input("Press Enter once you're logged in...")
+            return True
 
         except Exception as e:
-            print(f"❌ Login error: {e}")
+            print(f"\n❌ Login error: {e}")
             print("   The browser will stay open. Please log in manually.")
             input("   Press Enter once you're logged in...")
             return True
