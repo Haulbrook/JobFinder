@@ -83,3 +83,16 @@ temp/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Job queue (personal data)
+multi_platform_queue.json
+job_queue.json
+
+# Claude Code internal files
+.claude/
+
+# Bot session files
+./*_bot_session/
+
+# Temporary files
+nul

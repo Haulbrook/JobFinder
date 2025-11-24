@@ -2,8 +2,10 @@
 requests>=2.31.0
 python-dotenv>=1.0.0
 
-# Database
-sqlite3  # Built-in with Python 3.x
+# Database - sqlite3 is built-in with Python 3.x
+
+# Clipboard support (for hybrid mode)
+pyperclip>=1.8.0
 
 # Optional: AI Features (Claude API)
 anthropic>=0.7.0
@@ -17,9 +19,8 @@ mypy>=1.7.0
 # Optional: Advanced Features
 # Uncomment if you want to use these features
 
-# Browser automation (for auto-apply)
-# selenium>=4.15.0
-# playwright>=1.40.0
+# Browser automation (REQUIRED for multi-platform bots)
+playwright>=1.40.0
 
 # Email notifications
 # python-email>=0.1.0
