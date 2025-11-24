@@ -9,12 +9,17 @@ import time
 from pathlib import Path
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from anthropic import Anthropic
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Load environment variables
 load_dotenv()
+
+# Initialize Claude API
+anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+claude_client = Anthropic(api_key=anthropic_key) if anthropic_key else None
 
 
 class UpworkBot:
@@ -237,9 +242,70 @@ Location: Atlanta/North Georgia (US-based)"""
             print(f"❌ Search error: {e}")
             return []
 
-    def generate_proposal(self, job):
+    def analyze_job_with_claude(self, job):
         """
-        Generate a custom proposal for a job
+        Use Claude AI to analyze if a job is a good fit
+
+        Args:
+            job: Job dictionary
+
+        Returns:
+            Dictionary with analysis results
+        """
+        if not claude_client:
+            return {'is_good_fit': True, 'reason': 'Claude API not configured', 'match_score': 75}
+
+        try:
+            prompt = f"""You are helping Trey Haulbrook find the PERFECT automation/Google Apps Script freelance job.
+
+Trey's Profile:
+- 4+ years building production Google Apps Script automation systems
+- Expert in: Google Apps Script, JavaScript, Python, API Integration, Workflow Automation
+- Experience: Crew scheduling systems, inventory automation (500+ items), 10+ API integrations, Slack integration, web scraping
+- Proven results: Automated 20+ hours weekly, reduced admin overhead by 15+ hours
+- Hourly rate: $60
+- Location: Atlanta/North Georgia (US-based)
+- Response time: Within 4 hours
+- Looking for: Projects he'll LOVE and spend significant time on
+
+Job to analyze:
+Title: {job['title']}
+Budget: {job['budget']}
+Description: {job['description']}
+
+IMPORTANT: Trey wants jobs he'll LOVE since he'll be spending significant time on them. Prioritize:
+1. Interesting technical challenges
+2. Production systems (not one-off scripts)
+3. Potential for ongoing work
+4. Good clients (clear requirements, realistic budgets)
+5. Automation/Google Apps Script focus
+
+Analyze this job and respond ONLY with a JSON object (no markdown, no extra text):
+{{
+  "is_good_fit": true/false,
+  "match_score": 0-100,
+  "reason": "brief explanation why this is/isn't a good fit",
+  "red_flags": ["list any concerns"],
+  "highlights": ["what makes this appealing"]
+}}"""
+
+            response = claude_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=500,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            import json
+            result = json.loads(response.content[0].text)
+            return result
+
+        except Exception as e:
+            print(f"   ⚠️  Claude analysis error: {e}")
+            return {'is_good_fit': True, 'reason': f'Error: {e}', 'match_score': 70}
+
+    def generate_proposal_with_claude(self, job):
+        """
+        Use Claude AI to generate a highly personalized proposal
 
         Args:
             job: Job dictionary
@@ -247,38 +313,95 @@ Location: Atlanta/North Georgia (US-based)"""
         Returns:
             Proposal text
         """
+        if not claude_client:
+            return self._generate_template_proposal(job)
+
+        try:
+            prompt = f"""You are writing a winning Upwork proposal for Trey Haulbrook.
+
+Trey's Profile:
+- Name: Trey Haulbrook
+- Email: Haulbrookai@gmail.com
+- Phone: 770-530-7910
+- Hourly rate: $60
+- Title: Automation Developer | Google Apps Script Specialist
+- Experience: 4+ years building PRODUCTION automation systems (not just portfolio projects)
+
+Key Projects:
+1. Crew Scheduling System - Drag-and-drop interface, Slack API integration, real-time notifications, reduced admin overhead by 15+ hours weekly
+2. Inventory Automation - Processes 500+ items daily, integrated botanical APIs, automated pricing, web scraping with bot detection handling
+3. Multi-System Integration - Connected Google Workspace, Slack, field service management, LLM-powered chatbots
+4. Tool Management Platform - Asset tracking, checkout workflows, maintenance scheduling
+
+Technical Skills:
+- Google Apps Script (Advanced - 4+ years)
+- JavaScript, Python
+- API Integration (10+ APIs: Slack, Google Workspace, botanical databases, etc.)
+- Workflow Automation
+- Web Scraping
+- LLM Integration (Claude, ChatGPT)
+
+Proven Results:
+- Automated 20+ hours of manual work weekly
+- Integrated 10+ different APIs
+- Built systems processing 500+ items daily
+- Reduced administrative overhead by 15+ hours weekly
+
+Job Details:
+Title: {job['title']}
+Budget: {job['budget']}
+Description: {job['description']}
+
+Write a compelling, personalized Upwork proposal that:
+1. Opens with confidence and relevance to THEIR specific project
+2. Demonstrates you understand THEIR problem
+3. References Trey's MOST RELEVANT project experience (be specific!)
+4. Shows measurable results
+5. Outlines a clear approach for THEIR project
+6. Estimates hours realistically
+7. Closes with availability and eagerness
+
+Keep it:
+- Professional but friendly
+- Specific to THEIR project (not generic!)
+- 200-300 words
+- Results-focused
+- Confident (you've done this before!)
+
+End with:
+"Best regards,
+Trey Haulbrook
+Haulbrookai@gmail.com
+770-530-7910"
+
+Write ONLY the proposal text (no explanation, no markdown formatting):"""
+
+            response = claude_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=800,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            proposal = response.content[0].text.strip()
+            return proposal
+
+        except Exception as e:
+            print(f"   ⚠️  Claude proposal generation error: {e}")
+            print(f"   Falling back to template-based proposal...")
+            return self._generate_template_proposal(job)
+
+    def _generate_template_proposal(self, job):
+        """Fallback template-based proposal (original method)"""
         title = job.get('title', 'this project')
         description = job.get('description', '')
-
-        # Analyze job requirements
         keywords = description.lower()
 
-        # Determine relevant skills
-        relevant_skills = []
-        skill_matches = {
-            'google apps script': ['Google Apps Script', 'automation'],
-            'api': ['API integration', 'REST APIs'],
-            'slack': ['Slack API integration'],
-            'google sheets': ['Google Sheets automation'],
-            'google workspace': ['Google Workspace APIs'],
-            'automation': ['workflow automation'],
-            'web scraping': ['web scraping', 'data extraction'],
-            'python': ['Python development'],
-            'javascript': ['JavaScript programming']
-        }
-
-        for keyword, skills in skill_matches.items():
-            if keyword in keywords:
-                relevant_skills.extend(skills)
-
-        # Build proposal
         proposal = f"""Hi there,
 
 I saw your project "{title}" and I'm confident I can deliver exactly what you need.
 
 I've been building Google Apps Script automation systems for 4+ years, with a focus on production-ready solutions. """
 
-        # Add relevant experience
         if 'slack' in keywords:
             proposal += "Most recently, I built a crew scheduling system with Slack API integration that sends real-time notifications to teams. "
         elif 'inventory' in keywords or 'database' in keywords:
@@ -310,6 +433,23 @@ Haulbrookai@gmail.com
 
         return proposal
 
+    def generate_proposal(self, job):
+        """
+        Generate a custom proposal for a job (uses Claude AI if available)
+
+        Args:
+            job: Job dictionary
+
+        Returns:
+            Proposal text
+        """
+        if claude_client:
+            print("   🤖 Generating AI-powered proposal with Claude...")
+            return self.generate_proposal_with_claude(job)
+        else:
+            print("   📝 Generating template-based proposal...")
+            return self._generate_template_proposal(job)
+
     def preview_application(self, job, proposal):
         """
         Show application preview to user for approval
@@ -327,6 +467,18 @@ Haulbrookai@gmail.com
         print(f"\n🎯 JOB: {job['title']}")
         print(f"💰 BUDGET: {job['budget']}")
         print(f"🔗 URL: {job['url']}")
+
+        # Show Claude analysis if available
+        if claude_client and 'analysis' in job:
+            analysis = job['analysis']
+            print(f"\n🤖 CLAUDE ANALYSIS:")
+            print(f"   Match Score: {analysis.get('match_score', 'N/A')}%")
+            print(f"   Assessment: {analysis.get('reason', 'N/A')}")
+            if analysis.get('highlights'):
+                print(f"   ✨ Highlights: {', '.join(analysis['highlights'][:2])}")
+            if analysis.get('red_flags'):
+                print(f"   ⚠️  Red Flags: {', '.join(analysis['red_flags'][:2])}")
+
         print(f"\n📝 PROPOSAL:\n")
         print(proposal)
         print("\n" + "="*80)
@@ -461,6 +613,25 @@ Haulbrookai@gmail.com
             for job in jobs:
                 stats['reviewed'] += 1
 
+                # Analyze job with Claude (if available)
+                if claude_client:
+                    print(f"\n🤖 Analyzing job #{stats['reviewed']} with Claude AI...")
+                    analysis = self.analyze_job_with_claude(job)
+                    job['analysis'] = analysis
+
+                    # Show quick analysis
+                    print(f"   Match Score: {analysis.get('match_score', 'N/A')}%")
+                    print(f"   {analysis.get('reason', 'N/A')}")
+
+                    # Auto-skip low-quality jobs (score < 60)
+                    if not analysis.get('is_good_fit', True) or analysis.get('match_score', 100) < 60:
+                        print(f"   ⚠️  Low match score - Claude suggests skipping")
+                        skip_response = input("   Skip this job? (yes/no): ").lower().strip()
+                        if skip_response in ['yes', 'y', '']:
+                            stats['skipped'] += 1
+                            print(f"⏭️  Skipped: {job['title']}")
+                            continue
+
                 # Generate proposal
                 proposal = self.generate_proposal(job)
 
@@ -516,6 +687,13 @@ def main():
     print(f"   Headless mode: {HEADLESS}")
     print(f"   Auto-submit: {AUTO_SUBMIT}")
     print(f"   Max applications: {MAX_JOBS}")
+    print(f"   Claude AI: {'✅ ENABLED (High-quality proposals!)' if claude_client else '❌ Disabled'}")
+
+    if claude_client:
+        print("\n   🤖 Claude AI will:")
+        print("      • Analyze each job for fit quality")
+        print("      • Generate personalized proposals")
+        print("      • Filter out low-quality opportunities")
 
     if not AUTO_SUBMIT:
         print("\n   📋 You'll review each application before submitting")
