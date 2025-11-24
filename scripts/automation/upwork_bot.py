@@ -290,7 +290,7 @@ Analyze this job and respond ONLY with a JSON object (no markdown, no extra text
 }}"""
 
             response = claude_client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-haiku-20240307",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -377,7 +377,7 @@ Haulbrookai@gmail.com
 Write ONLY the proposal text (no explanation, no markdown formatting):"""
 
             response = claude_client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-haiku-20240307",
                 max_tokens=800,
                 messages=[{"role": "user", "content": prompt}]
             )
